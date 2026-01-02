@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f97316">
+    <meta name="description" content="Scegli dove fare colazione a Mantova">
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQ29sYXppb25lIE1hbnRvdmEiLCJzaG9ydF9uYW1lIjoiQ29sYXppb25lIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiNmZmZmZmYiLCJ0aGVtZV9jb2xvciI6IiNmOTczMTYiLCJpY29ucyI6W3sic3JjIjoiZGF0YTppbWFnZS9zdmcreG1sLCUzQ3N2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJyUzRSUzQ3RleHQgeT0nLjllbScgZm9udC1zaXplPSc5MCclM0UlRjAlOUYlOEQlQjUlM0MvdGV4dCUzRSUzQy9zdmclM0UiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCIsInNpemVzIjoiNTEyeDUxMiJ9XX0=">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍵</text></svg>">
+    <title>Colazione Mantova</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            overscroll-behavior: contain;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 50;
+        }
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tab {
+            cursor: pointer;
+            padding: 0.75rem 1rem;
+            border-bottom: 3px solid transparent;
+        }
+        .tab.active {
+            border-bottom-color: #f97316;
+            font-weight: bold;
+        }
+        #map {
+            width: 100%;
+            height: 400px;
+            border-radius: 0.5rem;
+        }
+        .place-photo {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app" class="max-w-2xl mx-auto pb-20">
+        <!-- Header -->
+        <div class="bg-white shadow-md p-4 sticky top-0 z-10">
+            <div class="flex justify-between items-start mb-2">
+                <div class="flex-1">
+                    <h1 class="text-2xl font-bold text-orange-600">🍵 Colazione Mantova</h1>
+                </div>
+                <div class="flex gap-2">
+                    <button id="exportDataBtn" class="text-sm bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded-lg transition-all" title="Scarica backup">
+                        💾
+                    </button>
+                    <button id="importDataBtn" class="text-sm bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 rounded-lg transition-all" title="Importa backup">
+                        📥
+                    </button>
+                    <input type="file" id="importFileInput" accept=".json" class="hidden">
+                </div>
+            </div>
+            
+            <!-- Tabs -->
+            <div class="flex gap-2 border-b">
+                <div class="tab active" data-tab="my-places">I Miei Locali</div>
+                <div class="tab" data-tab="discover">Scopri</div>
+            </div>
+        </div>
+
+        <!-- Tab: My Places -->
+        <div id="myPlacesTab" class="tab-content p-4">
+            <!-- Random Pick Button -->
+            <button id="randomBtn" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-6 rounded-lg shadow-lg mb-4 text-xl transition-all transform active:scale-95">
+                🎲 Scegli per noi!
+            </button>
+
+            <!-- Filters -->
+            <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+                <div class="flex items-center gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="filterNewspaper" class="w-5 h-5 text-orange-500">
+                        <span class="text-sm">Solo con giornale 📰</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Places List -->
+            <div id="placesList" class="space-y-3 mb-4"></div>
+
+            <!-- Add Place Button -->
+            <button id="addPlaceBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all">
+                ➕ Aggiungi Locale Manualmente
+            </button>
+        </div>
+
+        <!-- Tab: Discover -->
+        <div id="discoverTab" class="tab-content p-4 hidden">
+            <!-- API Key Setup -->
+            <div id="apiKeySetup" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <h3 class="font-bold mb-2">⚙️ Configura API Key</h3>
+                <p class="text-sm mb-2">Per cercare locali su Google Maps, inserisci la tua API Key:</p>
+                <div class="flex gap-2">
+                    <input type="text" id="apiKeyInput" placeholder="AIzaSy..." class="flex-1 border rounded-lg px-3 py-2 text-sm">
+                    <button id="saveApiKey" class="bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 py-2 rounded-lg text-sm">Salva</button>
+                </div>
+                <p class="text-xs text-gray-600 mt-2">
+                    <a href="#" id="showApiInstructions" class="text-orange-600 underline">Come ottenere l'API Key?</a>
+                </p>
+            </div>
+
+            <!-- Search Controls -->
+            <div id="searchControls" class="hidden">
+                <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+                    <h3 class="font-bold mb-3">🔍 Cerca Locali</h3>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Cerca per nome o indirizzo:</label>
+                            <input type="text" id="searchKeyword" class="w-full border rounded-lg px-3 py-2" placeholder="es. Café Adriano, Via Chiassi...">
+                            <p class="text-xs text-gray-500 mt-1">Lascia vuoto per cercare per categoria</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Oppure cerca per categoria:</label>
+                            <select id="searchType" class="w-full border rounded-lg px-3 py-2">
+                                <option value="cafe">Bar / Caffetterie</option>
+                                <option value="bakery">Pasticcerie</option>
+                                <option value="restaurant">Ristoranti (colazione)</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="openNowFilter" class="w-5 h-5 text-orange-500">
+                            <label for="openNowFilter" class="text-sm font-medium">🕐 Solo aperti ora</label>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium">Posizione:</label>
+                            <div class="flex flex-col gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="locationMode" value="mantova" class="w-4 h-4 text-orange-500" checked>
+                                    <span class="text-sm">📍 Mantova Centro (raggio 3km)</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="locationMode" value="gps" class="w-4 h-4 text-orange-500">
+                                    <span class="text-sm">🌍 Usa la mia posizione GPS</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button id="searchBtn" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg">
+                            🔍 Cerca
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Map -->
+                <div id="mapContainer" class="bg-white rounded-lg shadow-md p-4 mb-4 hidden">
+                    <div id="map"></div>
+                </div>
+
+                <!-- Loading -->
+                <div id="searchLoading" class="hidden text-center py-8">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+                    <p class="mt-4 text-gray-600">Cercando locali...</p>
+                </div>
+
+                <!-- Results -->
+                <div id="searchResults" class="space-y-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Add Place -->
+    <div id="addPlaceModal" class="modal">
+        <div class="bg-white rounded-lg shadow-xl p-6 m-4 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-4">Aggiungi Locale</h2>
+            <form id="addPlaceForm" class="space-y-4">
+                <input type="hidden" id="placeGoogleId">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Nome Locale*</label>
+                    <input type="text" id="placeName" required class="w-full border rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Indirizzo</label>
+                    <input type="text" id="placeAddress" class="w-full border rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Zona</label>
+                    <input type="text" id="placeZone" class="w-full border rounded-lg px-3 py-2" placeholder="es. Centro, Te Brunetti...">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Note</label>
+                    <textarea id="placeNotes" class="w-full border rounded-lg px-3 py-2" rows="2"></textarea>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Salva</button>
+                    <button type="button" id="cancelAddPlace" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Annulla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Add Visit -->
+    <div id="addVisitModal" class="modal">
+        <div class="bg-white rounded-lg shadow-xl p-6 m-4 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-4">Aggiungi Visita</h2>
+            <form id="addVisitForm" class="space-y-4">
+                <input type="hidden" id="visitPlaceId">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Data</label>
+                    <input type="date" id="visitDate" required class="w-full border rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Importo Pagato (€)</label>
+                    <input type="number" id="visitAmount" step="0.01" class="w-full border rounded-lg px-3 py-2" placeholder="5.50">
+                </div>
+                <div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="visitNewspaper" class="w-5 h-5 text-orange-500">
+                        <span>C'era il giornale 📰</span>
+                    </label>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Voto Brioche 🥐</label>
+                    <div class="flex gap-1" id="brioceRatingContainer">
+                        <button type="button" class="rating-btn w-12 h-12 text-2xl border-2 border-gray-300 rounded-lg hover:border-yellow-400 hover:bg-yellow-50 transition-all" data-rating="1" data-type="brioce">⭐</button>
+                        <button type="button" class="rating-btn w-12 h-12 text-2xl border-2 border-gray-300 rounded-lg hover:border-yellow-400 hover:bg-yellow-50 transition-all" data-rating="2" data-type="brioce">⭐</button>
+                        <button type="button" class="rating-btn w-12 h-12 text-2xl border-2 border-gray-300 rounded-lg hover:border-yellow-400 hover:bg-yellow-50 transition-all" data-rating="3" data-type="brioce">⭐</button>
+                        <button type="button" class="rating-btn w-12 h-12 text-2xl border-2 border-gray-300 rounded-lg hover:border-yellow-400 hover:bg-yellow-50 transition-all" data-rating="4" data-type="brioce">⭐</button>
+                        <button type="button" class="rating-btn w-12 h-12 text-2xl border-2 border-gray-300 rounded-lg hover:border-yellow-400 hover:bg-yellow-50 transition-all" data-rating="5" data-type="brioce">⭐</button>
+                    </div>
+                    <input type="hidden" id="brioceRating" value="">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Voto Caffè ☕</label>
+                    <div class="flex gap-1" id="coffeeRatingContainer">
+                        <button type="button" class="rating-btn w-12 h-12 text-2xl border-2 border-gray-300 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-all" data-rating="1" data-type="coffee">☕</button>
+                        <button type="button" class="rating-btn w-12 h-12 text-2xl border-2 border-gray-300 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-all" data-rating="2" data-type="coffee">☕</button>
+                        <button type="button" class="rating-btn w-12 h-12 text-2xl border-2 border-gray-300 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-all" data-rating="3" data-type="coffee">☕</button>
+                        <button type="button" class="rating-btn w-12 h-12 text-2xl border-2 border-gray-300 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-all" data-rating="4" data-type="coffee">☕</button>
+                        <button type="button" class="rating-btn w-12 h-12 text-2xl border-2 border-gray-300 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-all" data-rating="5" data-type="coffee">☕</button>
+                    </div>
+                    <input type="hidden" id="coffeeRating" value="">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Cosa abbiamo preso</label>
+                    <textarea id="visitItems" class="w-full border rounded-lg px-3 py-2" rows="3" placeholder="es. 2 cappuccini, 2 brioche..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Note</label>
+                    <textarea id="visitNotes" class="w-full border rounded-lg px-3 py-2" rows="2"></textarea>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg">Salva</button>
+                    <button type="button" id="cancelAddVisit" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Annulla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Place Details -->
+    <div id="placeDetailsModal" class="modal">
+        <div class="bg-white rounded-lg shadow-xl p-6 m-4 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div id="placeDetailsContent"></div>
+            <button id="closePlaceDetails" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg mt-4">Chiudi</button>
+        </div>
+    </div>
+
+    <!-- Modal API Instructions -->
+    <div id="apiInstructionsModal" class="modal">
+        <div class="bg-white rounded-lg shadow-xl p-6 m-4 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2 class="text-2xl font-bold mb-4">Come ottenere l'API Key</h2>
+            <div class="space-y-4 text-sm">
+                <div>
+                    <h3 class="font-bold mb-2">1. Vai su Google Cloud Console</h3>
+                    <p>Apri <a href="https://console.cloud.google.com/" target="_blank" class="text-orange-600 underline">console.cloud.google.com</a></p>
+                </div>
+                <div>
+                    <h3 class="font-bold mb-2">2. Crea un progetto</h3>
+                    <p>Clicca su "Seleziona progetto" → "Nuovo progetto" → Dai un nome (es. "Colazione Mantova")</p>
+                </div>
+                <div>
+                    <h3 class="font-bold mb-2">3. Abilita le API</h3>
+                    <p>Vai in "API e servizi" → "Libreria" e abilita:</p>
+                    <ul class="list-disc list-inside ml-2">
+                        <li>Places API (New)</li>
+                        <li>Maps JavaScript API</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-bold mb-2">4. Crea credenziali</h3>
+                    <p>"Credenziali" → "Crea credenziali" → "Chiave API"</p>
+                </div>
+                <div>
+                    <h3 class="font-bold mb-2">5. Limita la chiave (importante!)</h3>
+                    <p>Clicca sulla chiave appena creata → "Limita chiave" → Aggiungi il tuo dominio</p>
+                </div>
+                <div class="bg-blue-50 p-3 rounded">
+                    <p class="text-xs"><strong>💡 Nota:</strong> Google offre 200$ di crediti gratuiti al mese. Per questo uso non pagherai mai nulla!</p>
+                </div>
+            </div>
+            <button id="closeApiInstructions" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg mt-4">Ho capito!</button>
+        </div>
+    </div>
+
+    <script>
+        // Data structure
+        let places = [];
+        let visits = [];
+        let apiKey = '';
+        let map = null;
+        let service = null;
+        let currentLocation = { lat: 45.1564, lng: 10.7914 }; // Mantova center
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            renderPlaces();
+            setupEventListeners();
+            setupTabs();
+            checkApiKey();
+            setupRatingButtons();
+        });
+
+        // Load data from localStorage
+        function loadData() {
+            const savedPlaces = localStorage.getItem('colazioneMantovaPlaces');
+            const savedVisits = localStorage.getItem('colazioneMantovaVisits');
+            const savedApiKey = localStorage.getItem('colazioneMantovaApiKey');
+            
+            if (savedPlaces) places = JSON.parse(savedPlaces);
+            if (savedVisits) visits = JSON.parse(savedVisits);
+            if (savedApiKey) apiKey = savedApiKey;
+
+            // Add some sample data if empty
+            if (places.length === 0) {
+                places = [
+                    { id: Date.now(), name: 'Bar Centrale', zone: 'Centro', address: '', notes: 'Vicino a Piazza delle Erbe', googleId: null },
+                ];
+                saveData();
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('colazioneMantovaPlaces', JSON.stringify(places));
+            localStorage.setItem('colazioneMantovaVisits', JSON.stringify(visits));
+        }
+
+        // Check API Key
+        function checkApiKey() {
+            if (apiKey) {
+                document.getElementById('apiKeyInput').value = apiKey.substring(0, 10) + '...';
+                document.getElementById('apiKeySetup').classList.add('hidden');
+                document.getElementById('searchControls').classList.remove('hidden');
+            }
+        }
+
+        // Setup tabs
+        function setupTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+                    
+                    // Update active tab
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    // Show/hide content
+                    document.getElementById('myPlacesTab').classList.toggle('hidden', tabName !== 'my-places');
+                    document.getElementById('discoverTab').classList.toggle('hidden', tabName !== 'discover');
+                });
+            });
+        }
+
+        // Render places list
+        function renderPlaces() {
+            const container = document.getElementById('placesList');
+            const filterNewspaper = document.getElementById('filterNewspaper').checked;
+            
+            let filteredPlaces = [...places];
+
+            // Filter by newspaper if needed
+            if (filterNewspaper) {
+                filteredPlaces = filteredPlaces.filter(place => {
+                    const placeVisits = visits.filter(v => v.placeId === place.id);
+                    return placeVisits.some(v => v.hasNewspaper);
+                });
+            }
+
+            if (filteredPlaces.length === 0) {
+                container.innerHTML = '<div class="bg-white rounded-lg shadow-md p-6 text-center text-gray-500">Nessun locale trovato. Aggiungine uno!</div>';
+                return;
+            }
+
+            container.innerHTML = filteredPlaces.map(place => {
+                const placeVisits = visits.filter(v => v.placeId === place.id).sort((a, b) => new Date(b.date) - new Date(a.date));
+                const lastVisit = placeVisits[0];
+                const avgSpend = placeVisits.length > 0 
+                    ? (placeVisits.reduce((sum, v) => sum + (v.amount || 0), 0) / placeVisits.filter(v => v.amount).length).toFixed(2)
+                    : null;
+                
+                // Calculate average ratings
+                const brioceRatings = placeVisits.filter(v => v.brioceRating).map(v => v.brioceRating);
+                const coffeeRatings = placeVisits.filter(v => v.coffeeRating).map(v => v.coffeeRating);
+                const avgBrioce = brioceRatings.length > 0 
+                    ? (brioceRatings.reduce((a, b) => a + b, 0) / brioceRatings.length).toFixed(1)
+                    : null;
+                const avgCoffee = coffeeRatings.length > 0
+                    ? (coffeeRatings.reduce((a, b) => a + b, 0) / coffeeRatings.length).toFixed(1)
+                    : null;
+
+                return `
+                    <div class="bg-white rounded-lg shadow-md p-4 fade-in">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-lg">${place.name}</h3>
+                                ${place.address ? `<p class="text-xs text-gray-500">📍 ${place.address}</p>` : ''}
+                                ${place.zone ? `<p class="text-sm text-gray-600">${place.zone}</p>` : ''}
+                            </div>
+                            <button onclick="deletePlaceConfirm(${place.id})" class="text-red-500 hover:text-red-700 text-xl">🗑️</button>
+                        </div>
+                        ${place.notes ? `<p class="text-sm text-gray-700 mb-2">${place.notes}</p>` : ''}
+                        
+                        ${avgBrioce || avgCoffee ? `
+                            <div class="flex gap-3 mb-2 text-sm">
+                                ${avgBrioce ? `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">🥐 ${avgBrioce}/5</span>` : ''}
+                                ${avgCoffee ? `<span class="bg-amber-100 text-amber-800 px-2 py-1 rounded">☕ ${avgCoffee}/5</span>` : ''}
+                            </div>
+                        ` : ''}
+                        
+                        ${lastVisit ? `
+                            <div class="bg-gray-50 rounded p-2 mb-2 text-sm">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-medium">Ultima visita: ${formatDate(lastVisit.date)}</span>
+                                    ${lastVisit.hasNewspaper ? '<span>📰</span>' : ''}
+                                </div>
+                                ${lastVisit.amount ? `<p>💰 €${lastVisit.amount.toFixed(2)}</p>` : ''}
+                                ${lastVisit.brioceRating || lastVisit.coffeeRating ? `
+                                    <div class="flex gap-2 mt-1">
+                                        ${lastVisit.brioceRating ? `<span>🥐 ${'⭐'.repeat(lastVisit.brioceRating)}</span>` : ''}
+                                        ${lastVisit.coffeeRating ? `<span>☕ ${'☕'.repeat(lastVisit.coffeeRating)}</span>` : ''}
+                                    </div>
+                                ` : ''}
+                                ${lastVisit.items ? `<p class="text-gray-700">${lastVisit.items}</p>` : ''}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="flex gap-2 text-sm mb-2">
+                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">${placeVisits.length} ${placeVisits.length === 1 ? 'visita' : 'visite'}</span>
+                            ${avgSpend ? `<span class="bg-green-100 text-green-800 px-2 py-1 rounded">Media: €${avgSpend}</span>` : ''}
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button onclick="openAddVisit(${place.id})" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                                ➕ Visita
+                            </button>
+                            <button onclick="showPlaceDetails(${place.id})" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg text-sm">
+                                📊 Storico
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+        // Random pick
+        function randomPick() {
+            const filterNewspaper = document.getElementById('filterNewspaper').checked;
+            let availablePlaces = [...places];
+
+            if (filterNewspaper) {
+                availablePlaces = availablePlaces.filter(place => {
+                    const placeVisits = visits.filter(v => v.placeId === place.id);
+                    return placeVisits.some(v => v.hasNewspaper);
+                });
+            }
+
+            if (availablePlaces.length === 0) {
+                alert('Nessun locale disponibile con i filtri selezionati!');
+                return;
+            }
+
+            const randomPlace = availablePlaces[Math.floor(Math.random() * availablePlaces.length)];
+            
+            const placeVisits = visits.filter(v => v.placeId === randomPlace.id).sort((a, b) => new Date(b.date) - new Date(a.date));
+            const lastVisit = placeVisits[0];
+            
+            let message = `🎉 Andiamo da:\n\n${randomPlace.name}`;
+            if (randomPlace.address) message += `\n📍 ${randomPlace.address}`;
+            if (randomPlace.zone) message += `\n${randomPlace.zone}`;
+            if (lastVisit) {
+                message += `\n\n📅 Ultima volta: ${formatDate(lastVisit.date)}`;
+                if (lastVisit.amount) message += `\n💰 Abbiamo speso: €${lastVisit.amount.toFixed(2)}`;
+                if (lastVisit.hasNewspaper) message += `\n📰 C'era il giornale`;
+            }
+            
+            alert(message);
+        }
+
+        // Show place details
+        function showPlaceDetails(placeId) {
+            const place = places.find(p => p.id === placeId);
+            const placeVisits = visits.filter(v => v.placeId === placeId).sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            const totalSpent = placeVisits.reduce((sum, v) => sum + (v.amount || 0), 0);
+            const avgSpend = placeVisits.filter(v => v.amount).length > 0
+                ? (totalSpent / placeVisits.filter(v => v.amount).length).toFixed(2)
+                : 'N/A';
+            const newspaperCount = placeVisits.filter(v => v.hasNewspaper).length;
+            
+            // Calculate average ratings
+            const brioceRatings = placeVisits.filter(v => v.brioceRating).map(v => v.brioceRating);
+            const coffeeRatings = placeVisits.filter(v => v.coffeeRating).map(v => v.coffeeRating);
+            const avgBrioce = brioceRatings.length > 0 
+                ? (brioceRatings.reduce((a, b) => a + b, 0) / brioceRatings.length).toFixed(1)
+                : 'N/A';
+            const avgCoffee = coffeeRatings.length > 0
+                ? (coffeeRatings.reduce((a, b) => a + b, 0) / coffeeRatings.length).toFixed(1)
+                : 'N/A';
+
+            const content = `
+                <h2 class="text-2xl font-bold mb-4">${place.name}</h2>
+                ${place.address ? `<p class="text-sm text-gray-600 mb-1">📍 ${place.address}</p>` : ''}
+                ${place.zone ? `<p class="text-gray-600 mb-2">${place.zone}</p>` : ''}
+                ${place.notes ? `<p class="text-gray-700 mb-4">${place.notes}</p>` : ''}
+                
+                <div class="bg-blue-50 rounded-lg p-4 mb-4">
+                    <h3 class="font-bold mb-2">Statistiche</h3>
+                    <p>🔢 Visite totali: ${placeVisits.length}</p>
+                    <p>💰 Spesa media: €${avgSpend}</p>
+                    <p>💶 Totale speso: €${totalSpent.toFixed(2)}</p>
+                    <p>📰 Giornale disponibile: ${newspaperCount}/${placeVisits.length} volte</p>
+                    <p>🥐 Voto medio brioche: ${avgBrioce}/5</p>
+                    <p>☕ Voto medio caffè: ${avgCoffee}/5</p>
+                </div>
+
+                ${placeVisits.length > 0 ? `
+                    <h3 class="font-bold mb-2">Storico Visite</h3>
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                        ${placeVisits.map(v => `
+                            <div class="bg-gray-50 rounded p-3 text-sm">
+                                <div class="flex justify-between items-start mb-1">
+                                    <span class="font-medium">${formatDate(v.date)}</span>
+                                    <div class="flex gap-2">
+                                        ${v.hasNewspaper ? '<span>📰</span>' : ''}
+                                        <button onclick="deleteVisit(${v.id})" class="text-red-500 hover:text-red-700">🗑️</button>
+                                    </div>
+                                </div>
+                                ${v.amount ? `<p>💰 €${v.amount.toFixed(2)}</p>` : ''}
+                                ${v.brioceRating || v.coffeeRating ? `
+                                    <div class="flex gap-2 mt-1">
+                                        ${v.brioceRating ? `<span>🥐 ${'⭐'.repeat(v.brioceRating)}</span>` : ''}
+                                        ${v.coffeeRating ? `<span>☕ ${'☕'.repeat(v.coffeeRating)}</span>` : ''}
+                                    </div>
+                                ` : ''}
+                                ${v.items ? `<p class="text-gray-700 mt-1">${v.items}</p>` : ''}
+                                ${v.notes ? `<p class="text-gray-600 text-xs mt-1">${v.notes}</p>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : '<p class="text-gray-500 text-center py-4">Nessuna visita registrata</p>'}
+            `;
+
+            document.getElementById('placeDetailsContent').innerHTML = content;
+            document.getElementById('placeDetailsModal').classList.add('active');
+        }
+
+        // Delete visit
+        function deleteVisit(visitId) {
+            if (confirm('Vuoi davvero eliminare questa visita?')) {
+                visits = visits.filter(v => v.id !== visitId);
+                saveData();
+                renderPlaces();
+                document.getElementById('placeDetailsModal').classList.remove('active');
+            }
+        }
+
+        // Delete place
+        function deletePlaceConfirm(placeId) {
+            const place = places.find(p => p.id === placeId);
+            if (confirm(`Vuoi davvero eliminare "${place.name}"? Verranno eliminate anche tutte le visite associate.`)) {
+                places = places.filter(p => p.id !== placeId);
+                visits = visits.filter(v => v.placeId !== placeId);
+                saveData();
+                renderPlaces();
+            }
+        }
+
+        // Open add visit modal
+        function openAddVisit(placeId) {
+            document.getElementById('addVisitForm').reset();
+            document.getElementById('visitPlaceId').value = placeId;
+            // Set today's date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('visitDate').value = today;
+            // Reset ratings
+            document.getElementById('brioceRating').value = '';
+            document.getElementById('coffeeRating').value = '';
+            document.querySelectorAll('.rating-btn').forEach(btn => {
+                btn.classList.remove('border-yellow-400', 'bg-yellow-100', 'border-amber-400', 'bg-amber-100');
+                btn.classList.add('border-gray-300');
+            });
+            document.getElementById('addVisitModal').classList.add('active');
+        }
+
+        // Handle rating button clicks
+        function setupRatingButtons() {
+            document.querySelectorAll('.rating-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const rating = parseInt(this.dataset.rating);
+                    const type = this.dataset.type;
+                    const container = type === 'brioce' ? 'brioceRatingContainer' : 'coffeeRatingContainer';
+                    const hiddenInput = type === 'brioce' ? 'brioceRating' : 'coffeeRating';
+                    const colorClass = type === 'brioce' ? 'border-yellow-400' : 'border-amber-400';
+                    const bgClass = type === 'brioce' ? 'bg-yellow-100' : 'bg-amber-100';
+                    
+                    // Get all buttons in this container
+                    const buttons = document.querySelectorAll(`#${container} .rating-btn`);
+                    
+                    // Reset all buttons
+                    buttons.forEach(b => {
+                        b.classList.remove('border-yellow-400', 'bg-yellow-100', 'border-amber-400', 'bg-amber-100');
+                        b.classList.add('border-gray-300');
+                    });
+                    
+                    // Highlight selected buttons up to the clicked one
+                    buttons.forEach((b, index) => {
+                        if (index < rating) {
+                            b.classList.remove('border-gray-300');
+                            b.classList.add(colorClass, bgClass);
+                        }
+                    });
+                    
+                    // Set hidden input value
+                    document.getElementById(hiddenInput).value = rating;
+                });
+            });
+        }
+
+        // Search places with Google Maps
+        async function searchPlaces() {
+            if (!apiKey) {
+                alert('Inserisci prima la tua API Key!');
+                return;
+            }
+
+            const searchType = document.getElementById('searchType').value;
+            const searchKeyword = document.getElementById('searchKeyword').value.trim();
+            const openNow = document.getElementById('openNowFilter').checked;
+            const locationMode = document.querySelector('input[name="locationMode"]:checked').value;
+
+            document.getElementById('searchLoading').classList.remove('hidden');
+            document.getElementById('searchResults').innerHTML = '';
+
+            try {
+                // Get location based on selected mode
+                if (locationMode === 'gps') {
+                    try {
+                        const position = await new Promise((resolve, reject) => {
+                            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                                timeout: 10000,
+                                enableHighAccuracy: true
+                            });
+                        });
+                        currentLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                    } catch (gpsError) {
+                        alert('Impossibile ottenere la posizione GPS. Uso Mantova centro.\nErrore: ' + gpsError.message);
+                        currentLocation = { lat: 45.1564, lng: 10.7914 };
+                    }
+                } else {
+                    // Use Mantova center
+                    currentLocation = { lat: 45.1564, lng: 10.7914 };
+                }
+
+                // Initialize map if not already done
+                if (!map) {
+                    await loadGoogleMapsScript();
+                    initMap();
+                } else {
+                    // Update map center
+                    map.setCenter(currentLocation);
+                }
+
+                // Build search request
+                const request = {
+                    location: currentLocation,
+                    radius: 3000, // 3km radius
+                };
+
+                // If keyword is provided, use text search instead of nearby search
+                if (searchKeyword) {
+                    request.query = searchKeyword + ' Mantova';
+                    
+                    // Use textSearch instead of nearbySearch for keyword searches
+                    service.textSearch(request, (results, status) => {
+                        document.getElementById('searchLoading').classList.add('hidden');
+                        handleSearchResults(results, status);
+                    });
+                } else {
+                    // Use category-based search
+                    request.type = searchType;
+                    request.keyword = searchType === 'cafe' ? 'bar caffè colazione' : '';
+                    
+                    if (openNow) {
+                        request.openNow = true;
+                    }
+
+                    service.nearbySearch(request, (results, status) => {
+                        document.getElementById('searchLoading').classList.add('hidden');
+                        handleSearchResults(results, status);
+                    });
+                }
+
+            } catch (error) {
+                document.getElementById('searchLoading').classList.add('hidden');
+                alert('Errore: ' + error.message + '\n\nApri la Console del browser (F12) per maggiori dettagli.');
+                console.error('Search error:', error);
+            }
+        }
+
+        // Handle search results (common function for both search types)
+        function handleSearchResults(results, status) {
+            if (status === google.maps.places.PlacesServiceStatus.OK) {
+                if (results.length === 0) {
+                    document.getElementById('searchResults').innerHTML = `
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                            <p class="font-medium">Nessun locale trovato</p>
+                            <p class="text-sm text-gray-600 mt-2">Prova a:</p>
+                            <ul class="text-sm text-gray-600 mt-1">
+                                <li>• Modificare la ricerca</li>
+                                <li>• Togliere il filtro "Solo aperti ora"</li>
+                                <li>• Cercare per categoria invece che per nome</li>
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    displaySearchResults(results);
+                }
+                document.getElementById('mapContainer').classList.remove('hidden');
+            } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+                document.getElementById('searchResults').innerHTML = `
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                        <p class="font-medium">Nessun locale trovato</p>
+                        <p class="text-sm text-gray-600 mt-2">Prova a modificare la ricerca o cerca per categoria</p>
+                    </div>
+                `;
+            } else if (status === google.maps.places.PlacesServiceStatus.REQUEST_DENIED) {
+                alert('Errore: Richiesta negata.\n\nVerifica che:\n1. L\'API Key sia corretta\n2. Places API (New) sia abilitata\n3. Non ci siano limitazioni sui referrer troppo restrittive');
+            } else {
+                alert('Errore nella ricerca: ' + status + '\n\nProblemi possibili:\n- API Key non valida\n- API non abilitate correttamente\n- Limitazioni referrer troppo restrittive\n\nApri la Console del browser (F12) per dettagli.');
+                console.error('Places API error:', status);
+            }
+        }
+
+        // Load Google Maps Script
+        function loadGoogleMapsScript() {
+            return new Promise((resolve, reject) => {
+                if (window.google && window.google.maps) {
+                    resolve();
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=it`;
+                script.async = true;
+                script.defer = true;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        // Initialize map
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: currentLocation,
+                zoom: 14
+            });
+
+            service = new google.maps.places.PlacesService(map);
+
+            // Add marker for current location
+            new google.maps.Marker({
+                position: currentLocation,
+                map: map,
+                icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                title: 'La tua posizione'
+            });
+        }
+
+        // Display search results
+        function displaySearchResults(results) {
+            const container = document.getElementById('searchResults');
+            
+            // Clear existing markers except user location
+            const bounds = new google.maps.LatLngBounds();
+            
+            // Add user location to bounds
+            bounds.extend(currentLocation);
+
+            container.innerHTML = results.map((place, index) => {
+                const isAlreadyAdded = places.some(p => p.googleId === place.place_id);
+                const photoUrl = place.photos && place.photos[0] 
+                    ? place.photos[0].getUrl({ maxWidth: 400 })
+                    : null;
+
+                const openNow = place.opening_hours?.open_now;
+                const rating = place.rating || 'N/A';
+
+                // Add marker to map with info window
+                if (map) {
+                    const marker = new google.maps.Marker({
+                        position: place.geometry.location,
+                        map: map,
+                        title: place.name,
+                        animation: google.maps.Animation.DROP,
+                        label: {
+                            text: (index + 1).toString(),
+                            color: 'white',
+                            fontWeight: 'bold'
+                        }
+                    });
+
+                    bounds.extend(place.geometry.location);
+
+                    // Create info window
+                    const infoContent = `
+                        <div style="max-width: 250px;">
+                            ${photoUrl ? `<img src="${photoUrl}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;">` : ''}
+                            <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: bold;">${place.name}</h3>
+                            <p style="margin: 0 0 4px 0; font-size: 12px; color: #666;">${place.vicinity}</p>
+                            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                <span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 12px;">⭐ ${rating}</span>
+                                ${openNow !== undefined ? `<span style="background: ${openNow ? '#d1fae5' : '#fee2e2'}; color: ${openNow ? '#065f46' : '#991b1b'}; padding: 2px 8px; border-radius: 4px; font-size: 12px;">${openNow ? '🟢 Aperto' : '🔴 Chiuso'}</span>` : ''}
+                            </div>
+                            ${isAlreadyAdded ? 
+                                `<div style="background: #d1fae5; color: #065f46; padding: 8px; border-radius: 4px; text-align: center; font-size: 12px;">✅ Già nei tuoi locali</div>` :
+                                `<button onclick="importPlace('${place.place_id}')" style="width: 100%; background: #f97316; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">➕ Aggiungi ai miei locali</button>`
+                            }
+                        </div>
+                    `;
+
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: infoContent
+                    });
+
+                    marker.addListener('click', () => {
+                        // Close all other info windows
+                        if (window.currentInfoWindow) {
+                            window.currentInfoWindow.close();
+                        }
+                        infoWindow.open(map, marker);
+                        window.currentInfoWindow = infoWindow;
+                        
+                        // Scroll to the corresponding result card
+                        const resultCard = document.querySelector(`[data-place-index="${index}"]`);
+                        if (resultCard) {
+                            resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            resultCard.classList.add('ring-2', 'ring-orange-500');
+                            setTimeout(() => {
+                                resultCard.classList.remove('ring-2', 'ring-orange-500');
+                            }, 2000);
+                        }
+                    });
+                }
+
+                return `
+                    <div class="bg-white rounded-lg shadow-md p-4 fade-in transition-all" data-place-index="${index}">
+                        <div class="flex items-start gap-2 mb-2">
+                            <span class="bg-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold flex-shrink-0">${index + 1}</span>
+                            <div class="flex-1">
+                                ${photoUrl ? `<img src="${photoUrl}" class="place-photo mb-3">` : ''}
+                                
+                                <div class="flex justify-between items-start mb-2">
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-lg">${place.name}</h3>
+                                        <p class="text-sm text-gray-600">${place.vicinity}</p>
+                                    </div>
+                                    ${openNow !== undefined ? `
+                                        <span class="text-xs font-bold px-2 py-1 rounded ${openNow ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                            ${openNow ? '🟢 Aperto' : '🔴 Chiuso'}
+                                        </span>
+                                    ` : ''}
+                                </div>
+
+                                <div class="flex gap-2 text-sm mb-3">
+                                    <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">⭐ ${rating}</span>
+                                    ${place.price_level ? `<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">${'€'.repeat(place.price_level)}</span>` : ''}
+                                </div>
+
+                                ${isAlreadyAdded ? `
+                                    <div class="bg-green-50 text-green-700 text-sm py-2 px-3 rounded text-center">
+                                        ✅ Già aggiunto ai tuoi locali
+                                    </div>
+                                ` : `
+                                    <button onclick="importPlace('${place.place_id}')" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg">
+                                        ➕ Aggiungi ai miei locali
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Fit map to show all markers
+            if (map && results.length > 0) {
+                map.fitBounds(bounds);
+            }
+        }
+
+        // Import place from Google
+        function importPlace(placeId) {
+            if (!service) return;
+
+            const request = {
+                placeId: placeId,
+                fields: ['name', 'formatted_address', 'vicinity', 'rating', 'opening_hours', 'website', 'formatted_phone_number']
+            };
+
+            service.getDetails(request, (place, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK) {
+                    // Pre-fill the form
+                    document.getElementById('placeGoogleId').value = placeId;
+                    document.getElementById('placeName').value = place.name;
+                    document.getElementById('placeAddress').value = place.formatted_address || place.vicinity;
+                    
+                    // Try to extract zone from address
+                    const addressParts = (place.formatted_address || '').split(',');
+                    if (addressParts.length > 1) {
+                        document.getElementById('placeZone').value = addressParts[addressParts.length - 2].trim();
+                    }
+
+                    let notes = '';
+                    if (place.rating) notes += `Rating Google: ${place.rating}⭐\n`;
+                    if (place.website) notes += `Sito: ${place.website}\n`;
+                    if (place.formatted_phone_number) notes += `Tel: ${place.formatted_phone_number}`;
+                    
+                    document.getElementById('placeNotes').value = notes.trim();
+
+                    // Open modal
+                    document.getElementById('addPlaceModal').classList.add('active');
+                }
+            });
+        }
+
+        // Export data
+        function exportData() {
+            const data = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                places: places,
+                visits: visits,
+                apiKey: apiKey ? '***HIDDEN***' : '' // Don't export API key for security
+            };
+
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `colazione-mantova-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            alert(`✅ Backup salvato!\n\n${places.length} locali\n${visits.length} visite\n\nFile: ${link.download}`);
+        }
+
+        // Import data
+        function importData(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // Validate data structure
+                    if (!data.places || !data.visits) {
+                        throw new Error('File non valido: struttura dati mancante');
+                    }
+
+                    // Ask for confirmation
+                    const confirmMsg = `Vuoi importare questi dati?\n\n` +
+                        `📍 Locali: ${data.places.length}\n` +
+                        `📝 Visite: ${data.visits.length}\n` +
+                        `📅 Data backup: ${new Date(data.exportDate).toLocaleDateString('it-IT')}\n\n` +
+                        `⚠️ ATTENZIONE: Questo sostituirà tutti i dati attuali!\n` +
+                        `Dati attuali: ${places.length} locali, ${visits.length} visite`;
+
+                    if (confirm(confirmMsg)) {
+                        // Import data
+                        places = data.places;
+                        visits = data.visits;
+                        
+                        // Save to localStorage
+                        saveData();
+                        
+                        // Refresh UI
+                        renderPlaces();
+                        
+                        alert(`✅ Dati importati con successo!\n\n${places.length} locali\n${visits.length} visite`);
+                        
+                        // Switch to My Places tab
+                        document.querySelector('[data-tab="my-places"]').click();
+                    }
+                } catch (error) {
+                    alert(`❌ Errore nell'importazione:\n\n${error.message}\n\nAssicurati di caricare un file di backup valido.`);
+                    console.error('Import error:', error);
+                }
+            };
+
+            reader.onerror = function() {
+                alert('❌ Errore nella lettura del file');
+            };
+
+            reader.readAsText(file);
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Export/Import data
+            document.getElementById('exportDataBtn').addEventListener('click', exportData);
+            
+            document.getElementById('importDataBtn').addEventListener('click', () => {
+                document.getElementById('importFileInput').click();
+            });
+            
+            document.getElementById('importFileInput').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    importData(file);
+                    // Reset input so the same file can be imported again
+                    e.target.value = '';
+                }
+            });
+
+            // Random button
+            document.getElementById('randomBtn').addEventListener('click', randomPick);
+
+            // Filter
+            document.getElementById('filterNewspaper').addEventListener('change', renderPlaces);
+
+            // API Key
+            document.getElementById('saveApiKey').addEventListener('click', () => {
+                const key = document.getElementById('apiKeyInput').value.trim();
+                if (key) {
+                    apiKey = key;
+                    localStorage.setItem('colazioneMantovaApiKey', apiKey);
+                    checkApiKey();
+                }
+            });
+
+            document.getElementById('showApiInstructions').addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('apiInstructionsModal').classList.add('active');
+            });
+
+            document.getElementById('closeApiInstructions').addEventListener('click', () => {
+                document.getElementById('apiInstructionsModal').classList.remove('active');
+            });
+
+            // Search
+            document.getElementById('searchBtn').addEventListener('click', searchPlaces);
+
+            // Add place modal
+            document.getElementById('addPlaceBtn').addEventListener('click', () => {
+                document.getElementById('addPlaceForm').reset();
+                document.getElementById('placeGoogleId').value = '';
+                document.getElementById('addPlaceModal').classList.add('active');
+            });
+
+            document.getElementById('cancelAddPlace').addEventListener('click', () => {
+                document.getElementById('addPlaceModal').classList.remove('active');
+            });
+
+            document.getElementById('addPlaceForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newPlace = {
+                    id: Date.now(),
+                    name: document.getElementById('placeName').value,
+                    address: document.getElementById('placeAddress').value,
+                    zone: document.getElementById('placeZone').value,
+                    notes: document.getElementById('placeNotes').value,
+                    googleId: document.getElementById('placeGoogleId').value || null
+                };
+                places.push(newPlace);
+                saveData();
+                renderPlaces();
+                document.getElementById('addPlaceModal').classList.remove('active');
+                
+                // Switch to My Places tab
+                document.querySelector('[data-tab="my-places"]').click();
+            });
+
+            // Add visit modal
+            document.getElementById('cancelAddVisit').addEventListener('click', () => {
+                document.getElementById('addVisitModal').classList.remove('active');
+            });
+
+            document.getElementById('addVisitForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const brioceRating = document.getElementById('brioceRating').value;
+                const coffeeRating = document.getElementById('coffeeRating').value;
+                
+                const newVisit = {
+                    id: Date.now(),
+                    placeId: parseInt(document.getElementById('visitPlaceId').value),
+                    date: document.getElementById('visitDate').value,
+                    amount: parseFloat(document.getElementById('visitAmount').value) || null,
+                    hasNewspaper: document.getElementById('visitNewspaper').checked,
+                    brioceRating: brioceRating ? parseInt(brioceRating) : null,
+                    coffeeRating: coffeeRating ? parseInt(coffeeRating) : null,
+                    items: document.getElementById('visitItems').value,
+                    notes: document.getElementById('visitNotes').value
+                };
+                visits.push(newVisit);
+                saveData();
+                renderPlaces();
+                document.getElementById('addVisitModal').classList.remove('active');
+                
+                // Remind to backup every 10 visits
+                if (visits.length % 10 === 0) {
+                    setTimeout(() => {
+                        if (confirm(`💾 Hai ${visits.length} visite salvate!\n\nVuoi fare un backup dei tuoi dati?\n(Consigliato ogni tanto per sicurezza)`)) {
+                            exportData();
+                        }
+                    }, 500);
+                }
+            });
+
+            // Place details modal
+            document.getElementById('closePlaceDetails').addEventListener('click', () => {
+                document.getElementById('placeDetailsModal').classList.remove('active');
+            });
+
+            // Close modals on outside click
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('active');
+                    }
+                });
+            });
+        }
+
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('data:text/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZnVuY3Rpb24oZSkge2Uud2FpdFVudGlsKHNlbGYuc2tpcFdhaXRpbmcoKSl9KTtzZWxmLmFkZEV2ZW50TGlzdGVuZXIoJ2ZldGNoJyxmdW5jdGlvbihlKXtlfSk=');
+            });
+        }
+    </script>
+</body>
+</html>
